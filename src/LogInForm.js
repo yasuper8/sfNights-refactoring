@@ -23,7 +23,7 @@ class LogInForm extends Component {
 
             </form>
 
-            <p className="text--center">Not a member? <a href="#" id="sign-up-link" onClick={this.props.onClick}>Sign up now</a></p>
+            <p className="text--center">Not a member? <a href="/signup" id="sign-up-link" onClick={this.props.onClick}>Sign up now</a></p>
       </div>
     );
   }
