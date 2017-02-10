@@ -3,22 +3,26 @@ import axios from 'axios';
 
 
 class Places extends Component{
-  componentWillMount(){
-    const script = document.createElement("script");
-
-    script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyAyUxOqgoWnWG2a_9C3JAUX5uAI3BnzsIU";
-    script.async = true;
-
-    document.body.appendChild(script);
-  }
-
   componentDidMount(){
-    const script = document.createElement("script");
+    var map;
+    axios.defaults.baseURL = location.protocol + '//' + location.hostname + ':' + 3001;
+    axios.get('/position').then(function(position){
+      console.log(position);
+      map = new window.google.maps.Map(document.getElementById('map'), {
+        center: {lat: parseFloat(position.data.lat), lng:parseFloat(position.data.lng)},
+        zoom: 12
+      });
 
-    script.src = "./map.js";
-    script.async = true;
+    var marker = new window.google.maps.Marker({
+        position: new window.google.maps.LatLng(position.data.lat, position.data.lng),
+        map: map
+    });
 
-    document.body.appendChild(script);
+      var infoWindow = new window.google.maps.InfoWindow({map: map});
+
+      infoWindow.setPosition({lat: parseFloat(position.data.lat), lng: parseFloat(position.data.lng)});
+      infoWindow.setContent('You are here');
+    });
   }
 
   render(){
