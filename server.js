@@ -4,6 +4,8 @@ var express = require('express');
 var mongoose = require('mongoose');
 var bodyParser = require('body-parser');
 var User = require('./model/user.js');
+const yelp = require('yelp-fusion');
+var db = require('./model');
 
 var app = express();
 var router = express.Router();
@@ -12,6 +14,7 @@ var currentUserLocation = {
   "lat": null,
   "lng": null
 }
+var client;
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(bodyParser.json());
@@ -26,7 +29,6 @@ app.use(function(req, res, next) {
 });
 
 app.post('/signup', function(req, res){
-  console.log(server);
   res.json({res: "some res"});
     // User.createSecure(req.body.name, req.body.email, req.body.dob, req.body.password, function(err, user){
     //   if(err){console.log(err);}
@@ -41,6 +43,82 @@ app.get('/position', function(req, res){
 app.post('/setcurrentlocation', function(req, res){
   currentUserLocation["lat"] = req.body.lat;
   currentUserLocation["lng"] = req.body.lng;
+});
+
+app.get("/getyelpdata", function(req,res){
+  yelp.accessToken("zlyKmaUcKVM3dc3lQQjfjQ", "xq4eOIaI6Lqupx1X0WYi5JD0ZuHm4VQLlpxxBMGT93btB7AQ86csvScdMD2yLC2d").then(response => {
+    client = yelp.client(response.jsonBody.access_token);
+
+    client.search({
+      term:'Bars',
+      latitude: currentUserLocation["lat"],
+      longitude: currentUserLocation["lng"],
+      radius: 7000,
+      limit:10
+    }).then(response => {
+      res.json(response);
+    });
+  }).catch(e => {
+    console.log(e);
+  });
+});
+
+app.post('/findorcreate', function(req,res){
+
+  function returningNewPlace(place, newPost){
+    res.json({place: place, post: newPost});
+  }
+
+  function returnExistingPlace(place){
+    db.Post.findOne({_id: place.currentPost}, function(err, post){
+      res.json({place: place, post: post});
+    });
+  }
+
+  db.Place.findOne({yelp_id: req.body.id}, function(err, foundPlace){
+      client.business(req.body.id).then(function(detailedInfoPlace){
+        console.log("DETAILED INFO");
+        console.log(detailedInfoPlace.jsonBody["hours"]);
+          if(!foundPlace){
+            var newPlace = new db.Place({
+              yelp_id: req.body.id,
+              currentPost: null,
+              visitors: [],
+              posts:[]
+            });
+
+            if(typeof detailedInfoPlace.jsonBody["hours"] !== "undefined"){
+              newPlace.is_open_now = detailedInfoPlace.jsonBody["hours"][0].is_open_now;
+            }
+            else{
+              newPlace.is_open_now = false;
+            }
+
+            newPlace.save();
+
+            var newPost = new db.Post({
+                date: new Date(),
+                rating: 0,
+                placeId: newPlace._id,
+                comments: []
+            });
+            newPost.save();
+
+            newPlace.currentPost = newPost._id;
+            newPlace.save();
+            returningNewPlace(newPlace, newPost);
+        }
+        else{
+          foundPlace.is_open_now = detailedInfoPlace.jsonBody["hours"][0].is_open_now;
+          foundPlace.save();
+          returnExistingPlace(foundPlace);
+        }
+
+      }).catch(e => {
+        console.log(e);
+        res.json();
+      });
+  });
 });
 
 var server = app.listen(process.env.API_PORT || 3001);
